@@ -1,4 +1,3 @@
-from functools import reduce
 import numpy as np
 from pathlib import Path
 
