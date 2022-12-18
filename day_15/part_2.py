@@ -1,6 +1,15 @@
-from collections import Counter
+from itertools import combinations
 from pathlib import Path
 from parse import parse
+from sympy import (
+    Eq,
+    Abs,
+    And,
+    solve,
+    symbols,
+    piecewise_fold,
+    Piecewise,
+)
 
 CURRENT_FILE = Path(__file__).absolute()
 INPUT_FILE = Path(CURRENT_FILE.parent, 'input.txt')
@@ -8,20 +17,10 @@ DEMO_INPUT_FILE = Path(CURRENT_FILE.parent, 'demo_input.txt')
 
 LOWER_COORD = 0
 HIGHER_COORD = 4_000_000
-# HIGHER_COORD = 20
 
-def coords(start, stop):
-    """List coordinates between start and stop, exclusive."""
-    step = 1 if start <= stop else -1
-    return range(start, stop, step)
+x, y = symbols('x y', integer=True)
 
-def points(line):
-    """List all points making up a line."""
-    x1, y1, x2, y2 = line
-    return [(x, y) for x, y in zip(coords(x1, x2), coords(y1, y2))]
-
-frontier = Counter()
-# sensor[pos] = minimum_distance
+# Parse input data
 sensors = {}
 with open(INPUT_FILE) as f:
     for line in f.read().splitlines():
@@ -29,19 +28,26 @@ with open(INPUT_FILE) as f:
             'Sensor at x={:d}, y={:d}: closest beacon is at x={:d}, y={:d}', line)
         distance = abs(sensor_x - beacon_x) + abs(sensor_y - beacon_y) + 1
         sensors[sensor_x, sensor_y] = distance
-        path = [
-            [sensor_x - distance, sensor_y],
-            [sensor_x, sensor_y + distance],
-            [sensor_x + distance, sensor_y],
-            [sensor_x, sensor_y - distance],
-            [sensor_x - distance, sensor_y],
-        ]
-        for start, end in zip(path[:-1], path[1:]):
-            for point in points((*start, *end)):
-                if all((LOWER_COORD <= coord <= HIGHER_COORD) for coord in point):
-                    frontier[point] += 1
 
-candidates = [position for position, count in frontier.items() if count >= 4]
+# Select candidates based on the assumption that there is only one position
+# where the beacon could possibly be: it must be somewhere at the intersection
+# between at least four sensor exclusion zones.
+candidates = set()
+for ((s1_x, s1_y), d1), ((s2_x, s2_y), d2) in combinations(sensors.items(), 2):
+    distance = abs(s1_x - s2_x) + abs(s1_y - s1_y)
+    if abs(d1 - d2) < distance < d1 + d2 and (
+        (s1_x + s1_y + d1 + s2_x + s2_y + d2) % 2 == 0):
+        eq1 = Eq(Abs(x - s1_x) + Abs(y - s1_y), d1)
+        eq2 = Eq(Abs(x - s2_x) + Abs(y - s2_y), d2)
+        pw = piecewise_fold(And(eq1.rewrite(Piecewise), eq2.rewrite(Piecewise)))
+        for e, co in pw.args:
+            s = solve(e.args)
+            if co.subs(s) and s and y in s:
+                if (LOWER_COORD <= s[x] < HIGHER_COORD and
+                        LOWER_COORD <= s[y] < HIGHER_COORD):
+                    candidates.add((s[x], s[y]))
+
+# Exclude impossible candidates
 solution = None
 for candidate in candidates:
     for (sensor_x, sensor_y), distance in sensors.items():
