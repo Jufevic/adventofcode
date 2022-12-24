@@ -1,7 +1,7 @@
 from collections import defaultdict, namedtuple
 from pathlib import Path
 from functools import cache
-from itertools import chain
+from itertools import chain, product
 from parse import parse
 
 CURRENT_FILE = Path(__file__).absolute()
@@ -12,7 +12,7 @@ START_VALVE = 'AA'
 
 connections = {}
 flows = {}
-with open(INPUT_FILE) as f:
+with open(DEMO_INPUT_FILE) as f:
     for line in f.read().splitlines():
         if result := parse(
             'Valve {} has flow rate={:d}; tunnel leads to valve {}',
@@ -74,5 +74,11 @@ def max_flow(minutes, current_pos, closed):
 
 # Namedtuples can be cached, dicts cannot. 
 ClosedValves = namedtuple('ClosedValves', working_flows.keys())
-closed = ClosedValves(**{valve: True for valve in working_flows})
-print(max_flow(30, 'AA', closed))
+max_score = 0
+for partition in product((True, False), repeat=len(working_flows)):
+    partition_score = 0
+    you = ClosedValves(**{valve: state for valve, state in zip(working_flows, partition)})
+    elephant = ClosedValves(**{valve: not state for valve, state in zip(working_flows, partition)})
+    max_score = max(max_score, max_flow(26, 'AA', you) + max_flow(26, 'AA', elephant))
+
+print(max_score)
