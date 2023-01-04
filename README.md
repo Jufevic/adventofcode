@@ -17,6 +17,7 @@
 * [day 16](/day_16)
 * [day 17](/day_17)
 * [day 18](/day_18)
+* [day 19](/day_19)
 * [day 20](/day_20)
 * [day 21](/day_21)
 * [day 22](/day_22)
